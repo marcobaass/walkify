@@ -5,55 +5,62 @@ import axios from 'axios';
 // const API_URL = import.meta.env.VITE_API_URL
 const API_URL = '/.netlify/functions';
 
+const getStoredAccessToken = () =>
+  localStorage.getItem('accessToken') || localStorage.getItem('spotify_access_token');
+
 export default function useAuth(code, setLoading) {
-  const [accessToken, setAccessToken] = useState(localStorage.getItem('accessToken') || null);
+  const [accessToken, setAccessToken] = useState(getStoredAccessToken);
   const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken') || null);
-  // const [expiresIn, setExpiresIn] = useState(localStorage.getItem('expiresIn') || null);
   const [expiresIn, setExpiresIn] = useState(parseInt(localStorage.getItem('expiresIn'), 10) || null);
-  const [expirationTime, setExpirationTime] = useState(() => Date.now() + (expiresIn ? expiresIn * 1000 : 0)); // setting expiration time
+  const [expirationTime, setExpirationTime] = useState(() => Date.now() + (expiresIn ? expiresIn * 1000 : 0));
   const loginRef = useRef(false);
 
+  const persistTokens = (nextAccessToken, nextRefreshToken, nextExpiresIn) => {
+    localStorage.setItem('accessToken', nextAccessToken);
+    localStorage.setItem('spotify_access_token', nextAccessToken);
+    localStorage.setItem('refreshToken', nextRefreshToken);
+    localStorage.setItem('expiresIn', nextExpiresIn.toString());
+  };
+
   useEffect(() => {
-    // Only attempt login when code is present (initial login)
     console.log('Initial login code: ', code);
-    if (code && !accessToken && !loginRef.current) {
-      console.log('Attempting login with code...');
-      loginRef.current = true;
-      const login = async () => {
-        console.log('sending Login Request to server');
 
-        try {
-          setLoading(true);
-          console.log('Sending Login Request to server with code:', code);
-          const response = await axios.post(`${API_URL}/login`, { code });
-          console.log('Login response:', response.data);
-          const { accessToken, refreshToken, expiresIn } = response.data;
-          console.log('Access token:', accessToken);
-          console.log('Refresh token:', refreshToken);
-          console.log('Expiration:', expiresIn);
-
-          setAccessToken(accessToken);
-          setRefreshToken(refreshToken);
-          setExpiresIn(expiresIn);
-
-          // Store tokens in localStorage
-          localStorage.setItem('accessToken', accessToken);
-          localStorage.setItem('refreshToken', refreshToken);
-          localStorage.setItem('expiresIn', expiresIn);
-
-          const storedExpiresIn = localStorage.getItem('expiresIn');  // Retrieving
-          console.log('Stored expiresIn:', storedExpiresIn);
-
-          window.history.replaceState({}, null, '/');  // Remove the code from the URL
-        } catch (error) {
-          console.error('Error during login:', error);
-        } finally {
-          setLoading(false);
-        }
-      };
-      login();
+    if (!code) {
+      return;
     }
-  }, [code, accessToken, setLoading]);
+
+    if (loginRef.current) {
+      return;
+    }
+
+    loginRef.current = true;
+
+    const login = async () => {
+      try {
+        setLoading(true);
+        console.log('Sending Login Request to server with code:', code);
+        const response = await axios.post(`${API_URL}/login`, { code });
+        console.log('Login response:', response.data);
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken, expiresIn: newExpiresIn } = response.data;
+
+        setAccessToken(newAccessToken);
+        setRefreshToken(newRefreshToken);
+        setExpiresIn(newExpiresIn);
+        setExpirationTime(Date.now() + newExpiresIn * 1000);
+        persistTokens(newAccessToken, newRefreshToken, newExpiresIn);
+
+        window.history.replaceState({}, null, '/');
+      } catch (error) {
+        console.error('Error during login:', error);
+        loginRef.current = false;
+        window.history.replaceState({}, null, '/');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    login();
+  }, [code, setLoading]);
 
   // Refresh token logic (this runs independently of the code logic)
   useEffect(() => {
@@ -79,9 +86,8 @@ export default function useAuth(code, setLoading) {
         setAccessToken(accessToken);
         setExpiresIn(expiresIn);
 
-        // Update localStorage
         localStorage.setItem('accessToken', accessToken);
-        // localStorage.setItem('expiresIn', expiresIn);
+        localStorage.setItem('spotify_access_token', accessToken);
         localStorage.setItem('expiresIn', expiresIn.toString());
 
         // Update expiration time

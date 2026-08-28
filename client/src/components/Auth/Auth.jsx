@@ -9,21 +9,12 @@ import Callback from '../Callback/Callback';
 export default function Auth() {
   const code = new URLSearchParams(window.location.search).get('code');
   const [isLoading, setLoading] = useState(!!code);
-  const [accessToken, setAccessToken] = useState(localStorage.getItem('spotify_access_token'));
+  const { accessToken, loginRef } = useAuth(code, setLoading);
 
-  const { accessToken: fetchedAccessToken, loginRef } = useAuth(code, setLoading);
-
-  // Debugging
   useEffect(() => {
     console.log("Auth component: code =", code);
-    console.log("Auth component: fetchedAccessToken =", fetchedAccessToken);
-  }, [code, fetchedAccessToken]);
-
-  useEffect(() => {
-    if (fetchedAccessToken && !accessToken) {
-      setAccessToken(fetchedAccessToken);
-    }
-  }, [fetchedAccessToken, accessToken]);
+    console.log("Auth component: accessToken =", accessToken);
+  }, [code, accessToken]);
 
   if (isLoading) {
     return (
@@ -42,7 +33,7 @@ export default function Auth() {
 
   return (
     <Routes>
-      <Route path="/callback" element={<Callback setAccessToken={setAccessToken} />} />
+      <Route path="/callback" element={<Callback />} />
       <Route path="/" element={accessToken ? <App accessToken={accessToken} loginRef={loginRef} /> : <Login />} />
       <Route path="/login" element={<Login />} />
     </Routes>
