@@ -1,6 +1,3 @@
-// const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const API_URL = '/.netlify/functions';
-
 let playerInstance = null;
 let deviceId = null;
 let initializePromise = null;
@@ -165,22 +162,22 @@ const Spotify = {
 
   async search(term, offset = 0, limit = 20, accessToken) {
     try {
-      const response = await fetch(`${API_URL}/search?term=${encodeURIComponent(term)}&offset=${offset}&limit=${limit}`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,  // Include the access token
-        },
-      });
-
-      console.log('Search response:', response); // Log the response
+      const response = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(term)}&type=track&offset=${offset}&limit=${limit}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      );
 
       if (!response.ok) {
-        console.error('Error response from search:', await response.text()); // Log error body
+        const errorResponse = await response.json().catch(() => ({}));
+        console.error('Error response from search:', errorResponse);
         return { tracks: [], total: 0 };
       }
 
       const data = await response.json();
-      console.log('Search response JSON:', data); // Log the response
-
 
       if (!data.tracks) {
         return { tracks: [], total: 0 };
