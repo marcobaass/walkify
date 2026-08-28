@@ -260,7 +260,9 @@ const Spotify = {
       });
 
       if (!response.ok) {
-        throw new Error('Error fetching user subscription level');
+        const error = new Error('Error fetching user subscription level');
+        error.status = response.status;
+        throw error;
       }
 
       const data = await response.json();
